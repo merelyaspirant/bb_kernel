@@ -381,7 +381,7 @@ void __init early_print(const char *str, ...)
 }
 
 #ifdef CONFIG_ARM_PATCH_IDIV
-
+/*BB Case */
 static inline u32 __attribute_const__ sdiv_instruction(void)
 {
 	if (IS_ENABLED(CONFIG_THUMB2_KERNEL)) {
@@ -526,6 +526,7 @@ static void __init elf_hwcap_fixup(void)
 void notrace cpu_init(void)
 {
 #ifndef CONFIG_CPU_V7M
+/* BB Case */
 	unsigned int cpu = smp_processor_id();
 	struct stack *stk = &stacks[cpu];
 
@@ -535,12 +536,16 @@ void notrace cpu_init(void)
 	}
 
 	/*
+
 	 * This only works on resume and secondary cores. For booting on the
 	 * boot cpu, smp_prepare_boot_cpu is called after percpu area setup.
 	 */
-	set_my_cpu_offset(per_cpu_offset(cpu));
+	set_my_cpu_offset(per_cpu_offset(cpu));a
 
-	cpu_proc_init();
+    cpu_proc_init();
+/*BB Case :looks like in our case it is func inside ./arch/arm/mm/proc-v7.S , which just
+returns so can we just remove this func and see 
+*/
 
 	/*
 	 * Define the placement constraint for the inline asm directive below.
@@ -595,7 +600,11 @@ void __init smp_setup_processor_id(void)
 	cpu_logical_map(0) = cpu;
 	for (i = 1; i < nr_cpu_ids; ++i)
 		cpu_logical_map(i) = i == cpu ? 0 : i;
+    
+    myprint(">>>mpidr %x cpu %u nr_cpu_ids %d\n", mpidr, cpu, nr_cpu_ids);
 
+	for (i = 1; i < nr_cpu_ids; ++i)
+        myprint(">>>logical %d mapped to %d\n", i, cpu_logical_map(i));
 	/*
 	 * clear __my_cpu_offset on boot CPU to avoid hang caused by
 	 * using percpu variable early, for example, lockdep will
@@ -693,10 +702,13 @@ struct proc_info_list *lookup_processor(u32 midr)
 static void __init setup_processor(void)
 {
 	unsigned int midr = read_cpuid_id();
+    myprint (">>>cpu id read from CP#15 %x\n", midr);
 	struct proc_info_list *list = lookup_processor(midr);
+    myprint(">>>proc_info_list ptr %p\n", list);
 
 	cpu_name = list->cpu_name;
 	__cpu_architecture = __get_cpu_architecture();
+    
 
 	init_proc_vtable(list->proc);
 #ifdef MULTI_TLB
@@ -720,7 +732,8 @@ static void __init setup_processor(void)
 	elf_hwcap = list->elf_hwcap;
 
 	cpuid_init_hwcaps();
-	patch_aeabi_idiv();
+    patch_aeabi_idiv();
+/*BB Case: fill hardware capabilities flags in global elf_hwcap */
 
 #ifndef CONFIG_ARM_THUMB
 	elf_hwcap &= ~(HWCAP_THUMB | HWCAP_IDIVT);

@@ -102,7 +102,7 @@ extern void cpu_reset(unsigned long addr, bool hvc) __attribute__((noreturn));
 extern void cpu_do_suspend(void *);
 extern void cpu_do_resume(void *);
 #else
-
+/* BB case */
 extern struct processor processor;
 #if defined(CONFIG_BIG_LITTLE) && defined(CONFIG_HARDEN_BRANCH_PREDICTOR)
 #include <linux/smp.h>
@@ -126,6 +126,7 @@ static inline void init_proc_vtable(const struct processor *p)
 		     cpu_vtable[0]->set_pte_ext);
 }
 #else
+/*BB Case */
 #define PROC_VTABLE(f)			processor.f
 #define PROC_TABLE(f)			processor.f
 static inline void init_proc_vtable(const struct processor *p)

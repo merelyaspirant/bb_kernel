@@ -669,6 +669,7 @@ extern void flush_bp_all(void);
 
 #ifndef __ASSEMBLY__
 #ifdef CONFIG_ARM_ERRATA_798181
+/*BB Case */
 extern void erratum_a15_798181_init(void);
 #else
 static inline void erratum_a15_798181_init(void) {}

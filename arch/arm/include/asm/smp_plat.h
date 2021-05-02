@@ -20,6 +20,7 @@ static inline bool is_smp(void)
 #ifndef CONFIG_SMP
 	return false;
 #elif defined(CONFIG_SMP_ON_UP)
+/*BB case */
 	extern unsigned int smp_on_up;
 	return !!smp_on_up;
 #else

@@ -144,6 +144,7 @@ void __init init_default_cache_policy(unsigned long pmd)
 	for (i = 0; i < ARRAY_SIZE(cache_policies); i++)
 		if (cache_policies[i].pmd == pmd) {
 			cachepolicy = i;
+            myprint(">>> cache policy selected: %s\n", cache_policies[i].policy);
 			break;
 		}
 

@@ -175,6 +175,17 @@ int printk_emit(int facility, int level,
 
 asmlinkage __printf(1, 2) __cold
 int printk(const char *fmt, ...);
+#ifndef MY_PRINTS
+#define MY_PRINTS
+#endif
+#ifdef MY_PRINTS
+#define myprint printk
+#else
+int myprint(const char *s, ...)
+{
+	return 0;
+}
+#endif
 
 /*
  * Special printk facility for scheduler/timekeeping use only, _DO_NOT_USE_ !
@@ -218,6 +229,11 @@ int vprintk(const char *s, va_list args)
 	return 0;
 }
 static inline __printf(1, 2) __cold
+
+int myprint(const char *s, ...)
+{
+	return 0;
+}
 int printk(const char *s, ...)
 {
 	return 0;

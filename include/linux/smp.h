@@ -56,7 +56,7 @@ void on_each_cpu_cond(bool (*cond_func)(int cpu, void *info),
 int smp_call_function_single_async(int cpu, call_single_data_t *csd);
 
 #ifdef CONFIG_SMP
-
+/*BB Case */
 #include <linux/preempt.h>
 #include <linux/kernel.h>
 #include <linux/compiler.h>
@@ -193,6 +193,7 @@ static inline int get_boot_cpu_id(void)
  * the warning message, as your code might not work under PREEMPT.
  */
 #ifdef CONFIG_DEBUG_PREEMPT
+/*BB Case */
   extern unsigned int debug_smp_processor_id(void);
 # define smp_processor_id() debug_smp_processor_id()
 #else
