@@ -518,7 +518,7 @@ asmlinkage __visible void __init start_kernel(void)
 	set_task_stack_end_magic(&init_task);
 	smp_setup_processor_id();
 	debug_objects_early_init();
-
+    /*will dig in later */
 	cgroup_init_early();
 
 	local_irq_disable();
@@ -529,6 +529,7 @@ asmlinkage __visible void __init start_kernel(void)
 	 * enable them.
 	 */
 	boot_cpu_init();
+    /*initialize hashtable which contains entries storing struct page mapping to virtual address */
 	page_address_init();
 	pr_notice("%s", linux_banner);
 	setup_arch(&command_line);

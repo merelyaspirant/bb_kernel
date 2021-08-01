@@ -29,7 +29,7 @@ static inline unsigned long *end_of_stack(const struct task_struct *task)
 }
 
 #elif !defined(__HAVE_THREAD_FUNCTIONS)
-
+/* BB Case */
 #define task_stack_page(task)	((void *)(task)->stack)
 
 static inline void setup_thread_stack(struct task_struct *p, struct task_struct *org)
@@ -52,6 +52,7 @@ static inline unsigned long *end_of_stack(struct task_struct *p)
 #ifdef CONFIG_STACK_GROWSUP
 	return (unsigned long *)((unsigned long)task_thread_info(p) + THREAD_SIZE) - 1;
 #else
+/* BB Case */
 	return (unsigned long *)(task_thread_info(p) + 1);
 #endif
 }

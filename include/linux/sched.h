@@ -1514,6 +1514,7 @@ void yield(void);
 
 union thread_union {
 #ifndef CONFIG_THREAD_INFO_IN_TASK
+/* BB Case */
 	struct thread_info thread_info;
 #endif
 	unsigned long stack[THREAD_SIZE/sizeof(long)];
@@ -1525,6 +1526,7 @@ static inline struct thread_info *task_thread_info(struct task_struct *task)
 	return &task->thread_info;
 }
 #elif !defined(__HAVE_THREAD_FUNCTIONS)
+/* BB Case */
 # define task_thread_info(task)	((struct thread_info *)(task)->stack)
 #endif
 

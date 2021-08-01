@@ -26,6 +26,7 @@ EXPORT_SYMBOL(init_task);
  */
 union thread_union init_thread_union __init_task_data = {
 #ifndef CONFIG_THREAD_INFO_IN_TASK
+/* BB Case */
 	INIT_THREAD_INFO(init_task)
 #endif
 };

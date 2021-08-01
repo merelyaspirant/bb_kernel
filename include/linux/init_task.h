@@ -210,6 +210,7 @@ extern struct cred init_cred;
 	.thread_info = INIT_THREAD_INFO(tsk),	\
 	.stack_refcount = ATOMIC_INIT(1),
 #else
+/* BB Case */
 # define INIT_TASK_TI(tsk)
 #endif
 

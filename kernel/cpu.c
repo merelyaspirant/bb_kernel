@@ -2250,7 +2250,7 @@ void init_cpu_online(const struct cpumask *src)
 void __init boot_cpu_init(void)
 {
 	int cpu = smp_processor_id();
-    myprint(">>>inside %s apu %d\n", __func__, cpu);
+    myprint(">>>inside %s cpu %d\n", __func__, cpu);
 
 	/* Mark the boot cpu "present", "online" etc for SMP and UP case */
 	set_cpu_online(cpu, true);
