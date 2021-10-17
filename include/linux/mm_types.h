@@ -353,6 +353,8 @@ struct core_state {
 };
 
 struct kioctx_table;
+
+//BB Case Memory manager context structure
 struct mm_struct {
 	struct vm_area_struct *mmap;		/* list of VMAs */
 	struct rb_root mm_rb;

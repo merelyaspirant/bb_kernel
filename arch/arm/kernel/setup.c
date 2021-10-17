@@ -887,7 +887,10 @@ static void __init request_standard_resources(const struct machine_desc *mdesc)
 			res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
 			request_resource(&iomem_resource, res);
 		}
-
+/* BB case, register ram as System ram resource to resource framwork, which is 
+   a tree like hierarchy. after registering ram , register kernel code and data region inside
+   system ram resource. All registered resources are exposed using /proc/iomem
+ */
 		res = memblock_virt_alloc(sizeof(*res), 0);
 		res->name  = "System RAM";
 		res->start = start;
@@ -895,6 +898,7 @@ static void __init request_standard_resources(const struct machine_desc *mdesc)
 		res->flags = IORESOURCE_SYSTEM_RAM | IORESOURCE_BUSY;
 
 		request_resource(&iomem_resource, res);
+        
 
 		if (kernel_code.start >= res->start &&
 		    kernel_code.end <= res->end)
@@ -1080,6 +1084,7 @@ void __init hyp_mode_check(void)
 			__boot_cpu_mode & MODE_MASK);
 		pr_warn("CPU: This may indicate a broken bootloader or firmware.\n");
 	} else
+    //BB case
 		pr_info("CPU: All CPU(s) started in SVC mode.\n");
 #endif
 }
@@ -1099,10 +1104,10 @@ void __init setup_arch(char **cmdline_p)
 	if (mdesc->reboot_mode != REBOOT_HARD)
 		reboot_mode = mdesc->reboot_mode;
 
-	init_mm.start_code = (unsigned long) _text;
-	init_mm.end_code   = (unsigned long) _etext;
-	init_mm.end_data   = (unsigned long) _edata;
-	init_mm.brk	   = (unsigned long) _end;
+	init_mm.start_code = (unsigned long) _text; //BB case start of text section
+	init_mm.end_code   = (unsigned long) _etext; // BB case end of text section and next is data section
+	init_mm.end_data   = (unsigned long) _edata; // BB case end of data section and next is bss section
+	init_mm.brk	   = (unsigned long) _end; // BB case end of bss section
 
 	/* populate cmd_line too for later use, preserving boot_command_line */
 	strlcpy(cmd_line, boot_command_line, COMMAND_LINE_SIZE);
@@ -1117,6 +1122,7 @@ void __init setup_arch(char **cmdline_p)
 	early_mm_init(mdesc);
 #endif
 	setup_dma_zone(mdesc);
+    /* BB Case , below two does nothing in our case */
 	xen_early_init();
 	efi_init();
 	/*
@@ -1136,9 +1142,9 @@ void __init setup_arch(char **cmdline_p)
 	if (mdesc->restart)
 		arm_pm_restart = mdesc->restart;
 
-	unflatten_device_tree();
+	unflatten_device_tree(); //BB case populate tree of device_nodes from flat blob
 
-	arm_dt_init_cpu_maps();
+	arm_dt_init_cpu_maps(); // BB case read cpu nodes from DT and rewrite cpu logical mask which was earlier created using smp_setup_processor_id()
 	psci_dt_init();
 #ifdef CONFIG_SMP
 	if (is_smp()) {

@@ -47,6 +47,7 @@ static inline void setup_thread_stack(struct task_struct *p, struct task_struct 
  * When the stack grows up, this is the highest address.
  * Beyond that position, we corrupt data on the next page.
  */
+/* BB Case */
 static inline unsigned long *end_of_stack(struct task_struct *p)
 {
 #ifdef CONFIG_STACK_GROWSUP

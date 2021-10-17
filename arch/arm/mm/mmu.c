@@ -379,8 +379,8 @@ static pte_t *pte_offset_late_fixmap(pmd_t *dir, unsigned long addr)
 static inline pmd_t * __init fixmap_pmd(unsigned long addr)
 {
 	pgd_t *pgd = pgd_offset_k(addr);
-	pud_t *pud = pud_offset(pgd, addr);
-	pmd_t *pmd = pmd_offset(pud, addr);
+	pud_t *pud = pud_offset(pgd, addr); //BB case: called from include/asm-generic/pgtable-nop4d-hack.h
+	pmd_t *pmd = pmd_offset(pud, addr); //BB case: called from arch/arm/include/asm/pgtable-2level.h
 
 	return pmd;
 }
@@ -745,6 +745,7 @@ static pte_t * __init arm_pte_alloc(pmd_t *pmd, unsigned long addr,
 				unsigned long prot,
 				void *(*alloc)(unsigned long sz))
 {
+//BB case checking if pmd entry already has ptr to pte table by comparing it to NULL , what if it has ptr to section but may be this is not possible, otherwise earler section mapping would have been selected and it would not have come here */
 	if (pmd_none(*pmd)) {
 		pte_t *pte = alloc(PTE_HWTABLE_OFF + PTE_HWTABLE_SIZE);
 		__pmd_populate(pmd, __pa(pte), prot);
@@ -766,11 +767,13 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 				  bool ng)
 {
 	pte_t *pte = arm_pte_alloc(pmd, addr, type->prot_l1, alloc);
-	do {
+    // BB case get virtual ptr for pte table . if pmd doesn't have pte ptr , alllocate a page for pte table.
+    // BB Case fill the pte table enteries in the loop
+	do { 
 		set_pte_ext(pte, pfn_pte(pfn, __pgprot(type->prot_pte)),
 			    ng ? PTE_EXT_NG : 0);
 		pfn++;
-	} while (pte++, addr += PAGE_SIZE, addr != end);
+	} while (pte++, addr += PAGE_SIZE, addr != end); //Since we are mapping for one complete pmd 1MiB , fill 256 enteries in one call  of pte table
 }
 
 static void __init __map_init_section(pmd_t *pmd, unsigned long addr,
@@ -789,15 +792,18 @@ static void __init __map_init_section(pmd_t *pmd, unsigned long addr,
 	 * offset for odd 1MB sections.
 	 * (See arch/arm/include/asm/pgtable-2level.h)
 	 */
-	if (addr & SECTION_SIZE)
+
+     /*BB case we have a section to map here with virtual address addr and we have the pmd entry * where we need to write the entry but this (1Mib)  pmd* = pgd* ( 2Mib), pgd* points to set of two entries in PGS table so if this section which we are going to map is 1st section not the 0th section , we need to +1 to get correct entry. */
+
+	if (addr & SECTION_SIZE) //BB case is addr is multiple of 1Mib section size
 		pmd++;
 #endif
 	do {
-		*pmd = __pmd(phys | type->prot_sect | (ng ? PMD_SECT_nG : 0));
+		*pmd = __pmd(phys | type->prot_sect | (ng ? PMD_SECT_nG : 0)); //BB case create 32 bits PGD/PMD entry
 		phys += SECTION_SIZE;
-	} while (pmd++, addr += SECTION_SIZE, addr != end);
+	} while (pmd++, addr += SECTION_SIZE, addr != end); //this can loop either 1 time or 2 times if 2 sections to be mapped 
 
-	flush_pmd_entry(p);
+	flush_pmd_entry(p); //BB case , make the write visible to table in RAM now
 }
 
 static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
@@ -805,20 +811,22 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 				      const struct mem_type *type,
 				      void *(*alloc)(unsigned long sz), bool ng)
 {
-	pmd_t *pmd = pmd_offset(pud, addr);
+	pmd_t *pmd = pmd_offset(pud, addr); //BB Case *pmd = *pud = *pgd
 	unsigned long next;
 
+   //BB Case looping to keep on mapping pmd inside given pgd for this call but BB case only one iteration
 	do {
 		/*
 		 * With LPAE, we must loop over to map
 		 * all the pmds for the given range.
 		 */
-		next = pmd_addr_end(addr, end);
+		next = pmd_addr_end(addr, end); //BB case next = end , so single iteration
 
 		/*
 		 * Try a section mapping - addr, next and phys must all be
 		 * aligned to a section boundary.
 		 */
+//BB Case so if memory type is section and also virtual, physical and next are round aligned to section size (1 << 20) , so complete section can be mapped no need to do pte mapping (translation through section mapping is faster , one lesser table to look up).
 		if (type->prot_sect &&
 				((addr | next | phys) & ~SECTION_MASK) == 0) {
 			__map_init_section(pmd, addr, next, phys, type, ng);
@@ -829,7 +837,7 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 
 		phys += next - addr;
 
-	} while (pmd++, addr = next, addr != end);
+	} while (pmd++, addr = next, addr != end); //BB case single iteration  next becomes end in first go
 }
 
 static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
@@ -837,14 +845,15 @@ static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
 				  const struct mem_type *type,
 				  void *(*alloc)(unsigned long sz), bool ng)
 {
-	pud_t *pud = pud_offset(pgd, addr);
+	pud_t *pud = pud_offset(pgd, addr); //BB Case return same pgd ptr
 	unsigned long next;
 
+//BB Case looping to keep on mapping pud inside given pgd for this call but BB case pud doesn't exist so only one iteration
 	do {
-		next = pud_addr_end(addr, end);
+		next = pud_addr_end(addr, end); //BB Case return same end ptr
 		alloc_init_pmd(pud, addr, next, phys, type, alloc, ng);
 		phys += next - addr;
-	} while (pud++, addr = next, addr != end);
+	} while (pud++, addr = next, addr != end); //BB case single iteration 
 }
 
 #ifndef CONFIG_ARM_LPAE
@@ -918,21 +927,21 @@ static void __init __create_mapping(struct mm_struct *mm, struct map_desc *md,
 	const struct mem_type *type;
 	pgd_t *pgd;
 
-	type = &mem_types[md->type];
+	type = &mem_types[md->type]; //BB Case array of ready made memory-mapping flags for different memory types to be used while filling pgd/pte enteries
 
 #ifndef CONFIG_ARM_LPAE
 	/*
 	 * Catch 36-bit addresses
 	 */
-	if (md->pfn >= 0x100000) {
+	if (md->pfn >= 0x100000) { //BB case for 32 bits addr, pfn is right 20 bits and rest left 12 bits are to address in 4K page. this checks if pfn takes > 20 bits/
 		create_36bit_mapping(mm, md, type, ng);
 		return;
 	}
 #endif
-
-	addr = md->virtual & PAGE_MASK;
-	phys = __pfn_to_phys(md->pfn);
-	length = PAGE_ALIGN(md->length + (md->virtual & ~PAGE_MASK));
+    /* BB Case , mapping will be done in granuality of pages */
+	addr = md->virtual & PAGE_MASK; /* BB Case rounding off virtaul addr to start of the page */
+	phys = __pfn_to_phys(md->pfn); /* BB Case Physical addr of that page */
+	length = PAGE_ALIGN(md->length + (md->virtual & ~PAGE_MASK)); //BB Case make total length in multiple of pages */
 
 	if (type->prot_l1 == 0 && ((addr | phys | length) & ~SECTION_MASK)) {
 		pr_warn("BUG: map for 0x%08llx at 0x%08lx can not be mapped using pages, ignoring.\n",
@@ -940,15 +949,15 @@ static void __init __create_mapping(struct mm_struct *mm, struct map_desc *md,
 		return;
 	}
 
-	pgd = pgd_offset(mm, addr);
-	end = addr + length;
-	do {
-		unsigned long next = pgd_addr_end(addr, end);
+	pgd = pgd_offset(mm, addr); //BB Case find entry for the virtual addr in PGD
+	end = addr + length; //BB case end would be next byte after last last byte to be mapped , Eg. to map 20 bytes, 0 + 20 = 20, 0 is first and 19 is last.
+	do { //BB Case keep on mapping sections until we map till the end of virtual addr range to be mapped
+		unsigned long next = pgd_addr_end(addr, end); //BB Case next addr is either next 2MiB (2 section) addr (as pgd * points to set of 2 pgd enteries)  or end addr , which ever is lesser, next is next byte after current section (0 + 20 = 20)
 
 		alloc_init_pud(pgd, addr, next, phys, type, alloc, ng);
 
-		phys += next - addr;
-		addr = next;
+		phys += next - addr; //BB case move ahead phys addr for next section addr
+		addr = next; //BB case make next section as current section
 	} while (pgd++, addr != end);
 }
 
@@ -959,9 +968,9 @@ static void __init __create_mapping(struct mm_struct *mm, struct map_desc *md,
  * offsets, and we take full advantage of sections and
  * supersections.
  */
-static void __init create_mapping(struct map_desc *md)
+static void __init create_mapping(struct map_desc *md) //BB case create_mapping fucntions prefer to create section mapping if possible (mem type and size alignment) otherwise try pte mapping
 {
-	if (md->virtual != vectors_base() && md->virtual < TASK_SIZE) {
+	if (md->virtual != vectors_base() && md->virtual < TASK_SIZE) { //BB Case md->virtual < TASK_SIZE means below kernel virtual addr space, inside user space
 		pr_warn("BUG: not creating mapping for 0x%08llx at 0x%08lx in user region\n",
 			(long long)__pfn_to_phys((u64)md->pfn), md->virtual);
 		return;
@@ -1132,6 +1141,15 @@ void __init debug_ll_io_init(void)
 static void * __initdata vmalloc_min =
 	(void *)(VMALLOC_END - (240 << 20) - VMALLOC_OFFSET);
 
+/*BB case */
+/* #define VMALLOC_END     0xff800000UL
+   VMALLOC_OFFSET = 8MiB
+   so, vmalloc_min = 0xf0000000
+
+   kernel virtual memory starts at = 0xc0000000
+   0xf0000000 - 0xc0000000 = 0x30000000 = 768 MiB
+*/
+
 /*
  * vmalloc=size forces the vmalloc area to be exactly 'size'
  * bytes. This can be used to increase (or decrease) the vmalloc
@@ -1177,11 +1195,13 @@ void __init adjust_lowmem_bounds(void)
 	vmalloc_limit = (u64)(uintptr_t)vmalloc_min - PAGE_OFFSET + PHYS_OFFSET;
 
 	for_each_memblock(memory, reg) {
+    /*BB Case i assume we have only one memory block , can be seen in dt memory node , yet to verify */
 		phys_addr_t block_start = reg->base;
 		phys_addr_t block_end = reg->base + reg->size;
 
-		if (reg->base < vmalloc_limit) {
+		if (reg->base < vmalloc_limit) { // nothing to do in case this memory block lies after vmalloc_limit(after kernel linear addr)
 			if (block_end > lowmem_limit)
+            /*BB case */
 				/*
 				 * Compare as u64 to ensure vmalloc_limit does
 				 * not get truncated. block_end should always
@@ -1191,6 +1211,11 @@ void __init adjust_lowmem_bounds(void)
 				lowmem_limit = min_t(u64,
 							 vmalloc_limit,
 							 block_end);
+
+                /* BB case vmalloc_limit = 0xb0000000 (768MiB) , block_limit = 0xa0000000
+                   lowmem_limit = 0xa0000000
+                   but need to verify it
+                */
 
 			/*
 			 * Find the first non-pmd-aligned page, and point
@@ -1205,6 +1230,8 @@ void __init adjust_lowmem_bounds(void)
 			 * allocated when mapping the start of bank 0, which
 			 * occurs before any free memory is mapped.
 			 */
+
+             /*BB Case i think both start and end are aligned , so memblock_limit remains 0 */
 			if (!memblock_limit) {
 				if (!IS_ALIGNED(block_start, PMD_SIZE))
 					memblock_limit = block_start;
@@ -1215,21 +1242,22 @@ void __init adjust_lowmem_bounds(void)
 		}
 	}
 
-	arm_lowmem_limit = lowmem_limit;
+	arm_lowmem_limit = lowmem_limit; //BB Case 0xa0000000
 
-	high_memory = __va(arm_lowmem_limit - 1) + 1;
+	high_memory = __va(arm_lowmem_limit - 1) + 1; /* BB Case 0xe0000000  , need to verify */
 
 	if (!memblock_limit)
-		memblock_limit = arm_lowmem_limit;
+		memblock_limit = arm_lowmem_limit; //BB Case = 0xa0000000
 
 	/*
 	 * Round the memblock limit down to a pmd size.  This
 	 * helps to ensure that we will allocate memory from the
 	 * last full pmd, which should be mapped.
 	 */
-	memblock_limit = round_down(memblock_limit, PMD_SIZE);
+	memblock_limit = round_down(memblock_limit, PMD_SIZE); //BB Case its already rounded 
 
 	if (!IS_ENABLED(CONFIG_HIGHMEM) || cache_is_vipt_aliasing()) {
+    /* BB Case HIGHMEM is enabled but other condition might be true, assuming it doesn't come here */
 		if (memblock_end_of_DRAM() > arm_lowmem_limit) {
 			phys_addr_t end = memblock_end_of_DRAM();
 
@@ -1274,7 +1302,7 @@ static inline void prepare_page_table(void)
 	 * memory bank, up to the vmalloc region.
 	 */
 	for (addr = __phys_to_virt(end);
-	     addr < VMALLOC_START; addr += PMD_SIZE)
+	     addr < VMALLOC_START; addr += PMD_SIZE) // BB Case #define PMD_SIZE  (1UL << PMD_SHIFT) (2MB) PMD_SHIFT = 21 
 		pmd_clear(pmd_off_k(addr));
 }
 
@@ -1323,8 +1351,9 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	 * Allocate the vector page early.
 	 */
 	vectors = early_alloc(PAGE_SIZE * 2);
+    //BB case vectors has virtual ptr of memory allocated from lowmem using memblock allocator and since it is from lowmem we have it linearly mapped already.
 
-	early_trap_init(vectors);
+	early_trap_init(vectors); //BB case copy the vector table and stub in this 2 page memory we just allocated.
 
 	/*
 	 * Clear page table except top pmd used by early fixmaps
@@ -1337,6 +1366,7 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	 * It is always first in the modulearea.
 	 */
 #ifdef CONFIG_XIP_KERNEL
+//BB case will not come here
 	map.pfn = __phys_to_pfn(CONFIG_XIP_PHYS_ADDR & SECTION_MASK);
 	map.virtual = MODULES_VADDR;
 	map.length = ((unsigned long)_exiprom - map.virtual + ~SECTION_MASK) & SECTION_MASK;
@@ -1367,10 +1397,12 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	 * location (0xffff0000).  If we aren't using high-vectors, also
 	 * create a mapping at the low-vectors virtual address.
 	 */
+     //BB case convention is to have vector addr at 0xffff0000, so remap vector table at this addr
 	map.pfn = __phys_to_pfn(virt_to_phys(vectors));
 	map.virtual = 0xffff0000;
 	map.length = PAGE_SIZE;
 #ifdef CONFIG_KUSER_HELPERS
+//BB case
 	map.type = MT_HIGH_VECTORS;
 #else
 	map.type = MT_LOW_VECTORS;
@@ -1378,6 +1410,7 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	create_mapping(&map);
 
 	if (!vectors_high()) {
+    //BB case not our case
 		map.virtual = 0;
 		map.length = PAGE_SIZE * 2;
 		map.type = MT_LOW_VECTORS;
@@ -1385,6 +1418,7 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	}
 
 	/* Now create a kernel read-only mapping */
+    //BB case mapping stubs
 	map.pfn += 1;
 	map.virtual = 0xffff0000 + PAGE_SIZE;
 	map.length = PAGE_SIZE;
@@ -1397,11 +1431,11 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	if (mdesc->map_io)
 		mdesc->map_io();
 	else
-		debug_ll_io_init();
-	fill_pmd_gaps();
+		debug_ll_io_init(); //BB case remap for debug uart registers, which earlier mapped in head.S
+	fill_pmd_gaps(); //BB case looks like does nothing in our case
 
 	/* Reserve fixed i/o space in VMALLOC region */
-	pci_reserve_io();
+	pci_reserve_io(); //BB case not defined in our case 
 
 	/*
 	 * Finally flush the caches and tlb to ensure that we're in a
@@ -1413,13 +1447,13 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 	flush_cache_all();
 
 	/* Enable asynchronous aborts */
-	early_abt_enable();
+	early_abt_enable(); //BB case not sure what it does
 }
 
 static void __init kmap_init(void)
 {
 #ifdef CONFIG_HIGHMEM
-	pkmap_page_table = early_pte_alloc(pmd_off_k(PKMAP_BASE),
+	pkmap_page_table = early_pte_alloc(pmd_off_k(PKMAP_BASE), //BB case what i understood is , this maps pte table for section 1MiB below PAGE_OFFSET and returns ptr_table ptr but why  highmem 1MiB below PAGE_OFFSET
 		PKMAP_BASE, _PAGE_KERNEL_TABLE);
 #endif
 
@@ -1438,16 +1472,16 @@ static void __init map_lowmem(void)
 		phys_addr_t start = reg->base;
 		phys_addr_t end = start + reg->size;
 		struct map_desc map;
-
+/*BB Case put print to make sure , where we land , in my opinion only in else case */
 		if (memblock_is_nomap(reg))
 			continue;
 
 		if (end > arm_lowmem_limit)
-			end = arm_lowmem_limit;
+			end = arm_lowmem_limit; 
 		if (start >= end)
 			break;
 
-		if (end < kernel_x_start) {
+		if (end < kernel_x_start) { 
 			map.pfn = __phys_to_pfn(start);
 			map.virtual = __phys_to_virt(start);
 			map.length = end - start;
@@ -1462,8 +1496,15 @@ static void __init map_lowmem(void)
 
 			create_mapping(&map);
 		} else {
+        /*BB case we have single 512 memory block which is all lowmem as < 768.
+         * we fall in this case only. Here we map kerenl text section with R/W/X
+         * any area between memory block start to kernel text as R/W
+         * any area after kernel text until end of memory block as r/W
+         */
+
+         /* To make sure print following 3 mappings */
 			/* This better cover the entire kernel */
-			if (start < kernel_x_start) {
+			if (start < kernel_x_start) { 
 				map.pfn = __phys_to_pfn(start);
 				map.virtual = __phys_to_virt(start);
 				map.length = kernel_x_start - start;
@@ -1592,11 +1633,16 @@ static void __init early_fixmap_shutdown(void)
 	int i;
 	unsigned long va = fix_to_virt(__end_of_permanent_fixed_addresses - 1);
 
+//BB case Clear pmd section entry containing entry for fixmap
 	pte_offset_fixmap = pte_offset_late_fixmap;
 	pmd_clear(fixmap_pmd(va));
 	local_flush_tlb_kernel_page(va);
 
+   
+
 	for (i = 0; i < __end_of_permanent_fixed_addresses; i++) {
+    //BB case create 2 level mapping for each one page size big fixmap mappings 
+
 		pte_t *pte;
 		struct map_desc map;
 
@@ -1626,14 +1672,14 @@ void __init paging_init(const struct machine_desc *mdesc)
 
 	prepare_page_table();
 	map_lowmem();
-	memblock_set_current_limit(arm_lowmem_limit);
+	memblock_set_current_limit(arm_lowmem_limit); //BB Case alloc memblock allocator to work below lowmem only
 	dma_contiguous_remap();
 	early_fixmap_shutdown();
 	devicemaps_init(mdesc);
 	kmap_init();
 	tcm_init();
 
-	top_pmd = pmd_off_k(0xffff0000);
+	top_pmd = pmd_off_k(0xffff0000); //BB case save pmd * of vector table
 
 	/* allocate the zero page. */
 	zero_page = early_alloc(PAGE_SIZE);
@@ -1641,6 +1687,7 @@ void __init paging_init(const struct machine_desc *mdesc)
 	bootmem_init();
 
 	empty_zero_page = virt_to_page(zero_page);
+    //BB case empty_zero_page is a special page that is used for zero-initialized data and COW.     
 	__flush_dcache_page(NULL, empty_zero_page);
 
 	/* Compute the virt/idmap offset, mostly for the sake of KVM */

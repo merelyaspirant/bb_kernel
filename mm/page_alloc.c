@@ -321,6 +321,7 @@ static inline void reset_deferred_meminit(pg_data_t *pgdat)
 
 	pgdat->static_init_pgcnt = min(max_pgcnt, pgdat->node_spanned_pages);
 	pgdat->first_deferred_pfn = ULONG_MAX;
+    //BB case in our case with just 512 MiB total pgdat->static_init_pgcnt will cover all page frames count 
 }
 
 /* Returns true if the struct page for the pfn is uninitialised */
@@ -6017,13 +6018,15 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 	enum zone_type j;
 	int nid = pgdat->node_id;
 
-	pgdat_resize_init(pgdat);
+	pgdat_resize_init(pgdat); //BB case do nothing
 #ifdef CONFIG_NUMA_BALANCING
+//BB case no
 	spin_lock_init(&pgdat->numabalancing_migrate_lock);
 	pgdat->numabalancing_migrate_nr_pages = 0;
 	pgdat->numabalancing_migrate_next_window = jiffies;
 #endif
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
+//BB case no
 	spin_lock_init(&pgdat->split_queue_lock);
 	INIT_LIST_HEAD(&pgdat->split_queue);
 	pgdat->split_queue_len = 0;
@@ -6031,15 +6034,16 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 	init_waitqueue_head(&pgdat->kswapd_wait);
 	init_waitqueue_head(&pgdat->pfmemalloc_wait);
 #ifdef CONFIG_COMPACTION
+//BB case
 	init_waitqueue_head(&pgdat->kcompactd_wait);
 #endif
-	pgdat_page_ext_init(pgdat);
+	pgdat_page_ext_init(pgdat); //BB case does nothing
 	spin_lock_init(&pgdat->lru_lock);
 	lruvec_init(node_lruvec(pgdat));
 
 	pgdat->per_cpu_nodestats = &boot_nodestats;
 
-	for (j = 0; j < MAX_NR_ZONES; j++) {
+	for (j = 0; j < MAX_NR_ZONES; j++) { //BB case in our case 0 is ZONE_NORMAL , 1 is ZONE_HIGHMEM
 		struct zone *zone = pgdat->node_zones + j;
 		unsigned long size, realsize, freesize, memmap_pages;
 		unsigned long zone_start_pfn = zone->zone_start_pfn;
@@ -6052,13 +6056,13 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 		 * is used by this zone for memmap. This affects the watermark
 		 * and per-cpu initialisations
 		 */
-		memmap_pages = calc_memmap_size(size, realsize);
+		memmap_pages = calc_memmap_size(size, realsize); //BB case num of pages used by mem_map
 		if (!is_highmem_idx(j)) {
 			if (freesize >= memmap_pages) {
 				freesize -= memmap_pages;
 				if (memmap_pages)
 					printk(KERN_DEBUG
-					       "  %s zone: %lu pages used for memmap\n",
+					       "  %s zone: %lu pages used for memmap\n", //BB case ZONE normal 
 					       zone_names[j], memmap_pages);
 			} else
 				pr_warn("  %s zone: %lu pages exceeds freesize %lu\n",
@@ -6066,7 +6070,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 		}
 
 		/* Account for reserved pages */
-		if (j == 0 && freesize > dma_reserve) {
+		if (j == 0 && freesize > dma_reserve) { //BB case dma_reserve = 0
 			freesize -= dma_reserve;
 			printk(KERN_DEBUG "  %s zone: %lu pages reserved\n",
 					zone_names[0], dma_reserve);
@@ -6114,10 +6118,11 @@ static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
 		return;
 
 #ifdef CONFIG_FLAT_NODE_MEM_MAP
+//BB case FLAT mem map
 	start = pgdat->node_start_pfn & ~(MAX_ORDER_NR_PAGES - 1);
 	offset = pgdat->node_start_pfn - start;
 	/* ia64 gets its own node_mem_map, before this, without bootmem */
-	if (!pgdat->node_mem_map) {
+	if (!pgdat->node_mem_map) { //BB this is our case 
 		unsigned long size, end;
 		struct page *map;
 
@@ -6128,22 +6133,23 @@ static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
 		 */
 		end = pgdat_end_pfn(pgdat);
 		end = ALIGN(end, MAX_ORDER_NR_PAGES);
-		size =  (end - start) * sizeof(struct page);
-		map = alloc_remap(pgdat->node_id, size);
+		size =  (end - start) * sizeof(struct page); //total number page_frames * struct page size
+		map = alloc_remap(pgdat->node_id, size); //BB case not defined in our case , returns null
 		if (!map)
 			map = memblock_virt_alloc_node_nopanic(size,
 							       pgdat->node_id);
-		pgdat->node_mem_map = map + offset;
+		pgdat->node_mem_map = map + offset; // BB case memory is allocated for memmap anywhere free space found in lowmem , not specific location
 	}
 #ifndef CONFIG_NEED_MULTIPLE_NODES
 	/*
 	 * With no DISCONTIG, the global mem_map is just set as node 0's
 	 */
 	if (pgdat == NODE_DATA(0)) {
-		mem_map = NODE_DATA(0)->node_mem_map;
-#if defined(CONFIG_HAVE_MEMBLOCK_NODE_MAP) || defined(CONFIG_FLATMEM)
+		mem_map = NODE_DATA(0)->node_mem_map; // BB case , point global mem_map ptr
+#if defined(CONFIG_HAVE_MEMBLOCK_NODE_MAP) || defined(CONFIG_FLATMEM) 
+//BB case
 		if (page_to_pfn(mem_map) != pgdat->node_start_pfn)
-			mem_map -= offset;
+			mem_map -= offset; //BB case comes here or not and whats the offse value , not sure.
 #endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
 	}
 #endif
@@ -6161,7 +6167,7 @@ void __paginginit free_area_init_node(int nid, unsigned long *zones_size,
 	WARN_ON(pgdat->nr_zones || pgdat->kswapd_classzone_idx);
 
 	pgdat->node_id = nid;
-	pgdat->node_start_pfn = node_start_pfn;
+	pgdat->node_start_pfn = node_start_pfn; //BB case start pfn for memory
 	pgdat->per_cpu_nodestats = NULL;
 #ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
 	get_pfn_range_for_nid(nid, &start_pfn, &end_pfn);
@@ -6169,19 +6175,23 @@ void __paginginit free_area_init_node(int nid, unsigned long *zones_size,
 		(u64)start_pfn << PAGE_SHIFT,
 		end_pfn ? ((u64)end_pfn << PAGE_SHIFT) - 1 : 0);
 #else
+//BB case 
 	start_pfn = node_start_pfn;
 #endif
+//BB case , below func calulate num of page frames for each , fill pgdat.zone data str and also get total num of page frames in memory.
 	calculate_node_totalpages(pgdat, start_pfn, end_pfn,
 				  zones_size, zholes_size);
 
-	alloc_node_mem_map(pgdat);
+
+	alloc_node_mem_map(pgdat); // BB case allocate memory for mem_map (our is flat_mem), array of struct page of size [total page frames]
 #ifdef CONFIG_FLAT_NODE_MEM_MAP
+//BB case
 	printk(KERN_DEBUG "free_area_init_node: node %d, pgdat %08lx, node_mem_map %08lx\n",
 		nid, (unsigned long)pgdat,
 		(unsigned long)pgdat->node_mem_map);
 #endif
 
-	reset_deferred_meminit(pgdat);
+	reset_deferred_meminit(pgdat); //BB case Determine how many pages need to be initialized durig early boot, all in our case with just 512 MiB
 	free_area_init_core(pgdat);
 }
 

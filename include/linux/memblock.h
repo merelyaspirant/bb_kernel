@@ -3,6 +3,7 @@
 #ifdef __KERNEL__
 
 #ifdef CONFIG_HAVE_MEMBLOCK
+//BB Case
 /*
  * Logical memory blocks.
  *

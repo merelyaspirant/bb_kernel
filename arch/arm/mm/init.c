@@ -93,9 +93,9 @@ __tagtable(ATAG_INITRD2, parse_tag_initrd2);
 static void __init find_limits(unsigned long *min, unsigned long *max_low,
 			       unsigned long *max_high)
 {
-	*max_low = PFN_DOWN(memblock_get_current_limit());
-	*min = PFN_UP(memblock_start_of_DRAM());
-	*max_high = PFN_DOWN(memblock_end_of_DRAM());
+	*max_low = PFN_DOWN(memblock_get_current_limit()); //BB case lowmem limit
+	*min = PFN_UP(memblock_start_of_DRAM()); //BB case start of memory
+	*max_high = PFN_DOWN(memblock_end_of_DRAM()); //BB case end of memory
 }
 
 #ifdef CONFIG_ZONE_DMA
@@ -128,6 +128,7 @@ static void __init arm_adjust_dma_zone(unsigned long *size, unsigned long *hole,
 void __init setup_dma_zone(const struct machine_desc *mdesc)
 {
 #ifdef CONFIG_ZONE_DMA
+#error CONFIG_ZONE_DMA defined
 	if (mdesc->dma_zone_size) {
 		arm_dma_zone_size = mdesc->dma_zone_size;
 		arm_dma_limit = PHYS_OFFSET + arm_dma_zone_size - 1;
@@ -153,9 +154,21 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max_low,
 	 * to do anything fancy with the allocation of this memory
 	 * to the zones, now is the time to do it.
 	 */
-	zone_size[0] = max_low - min;
+
+     /* BB case
+      * zones are enum values
+      * ZONE_DMA = 0
+      * ZONE_NORMAL = 1
+      * ZONE_HIGHMEM = 2
+      * 
+      * CONFIG_ZONE_DMA is not defined so
+      * so ZONE_NORMAL = 0
+      * ZONE_HIGHMEM = 1
+      * no ZONE_DMA for us
+      */
+	zone_size[0] = max_low - min; // BB case . so ZONE_NORMAL size  is set to the size of lowmem, memory which is linearly selected
 #ifdef CONFIG_HIGHMEM
-	zone_size[ZONE_HIGHMEM] = max_high - max_low;
+	zone_size[ZONE_HIGHMEM] = max_high - max_low; //BB case , memory above lowmem until end of ram, our case with 512 Mib (all linearly mapped) , so this size should be 0
 #endif
 
 	/*
@@ -164,6 +177,8 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max_low,
 	 */
 	memcpy(zhole_size, zone_size, sizeof(zhole_size));
 	for_each_memblock(memory, reg) {
+    // BB case we have single memory type memnlock, i.e, 512 MiB RAM
+
 		unsigned long start = memblock_region_memory_base_pfn(reg);
 		unsigned long end = memblock_region_memory_end_pfn(reg);
 
@@ -177,6 +192,7 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max_low,
 			zhole_size[ZONE_HIGHMEM] -= end - high_start;
 		}
 #endif
+//BB case hole sizes should come 0 
 	}
 
 #ifdef CONFIG_ZONE_DMA
@@ -297,7 +313,7 @@ void __init arm_memblock_init(const struct machine_desc *mdesc)
 	dma_contiguous_reserve(arm_dma_limit);
 
 	arm_memblock_steal_permitted = false;
-	memblock_dump_all();
+	memblock_dump_all(); //BB case pass memblock=debug cmdline parameter to see all reserved memory region
 }
 
 void __init bootmem_init(void)
@@ -312,6 +328,7 @@ void __init bootmem_init(void)
 	early_memtest((phys_addr_t)min << PAGE_SHIFT,
 		      (phys_addr_t)max_low << PAGE_SHIFT);
 
+//BB case CONFIG_SPARSEMEM is not defined
 	/*
 	 * Sparsemem tries to allocate bootmem in memory_present(),
 	 * so must be done after the fixed reservations

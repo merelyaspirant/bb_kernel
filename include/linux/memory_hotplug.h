@@ -235,6 +235,7 @@ extern void set_zone_contiguous(struct zone *zone);
 extern void clear_zone_contiguous(struct zone *zone);
 
 #else /* ! CONFIG_MEMORY_HOTPLUG */
+//BB case 
 #define pfn_to_online_page(pfn)			\
 ({						\
 	struct page *___page = NULL;		\

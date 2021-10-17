@@ -1462,7 +1462,7 @@ phys_addr_t __init_memblock memblock_start_of_DRAM(void)
 
 phys_addr_t __init_memblock memblock_end_of_DRAM(void)
 {
-	int idx = memblock.memory.cnt - 1;
+	int idx = memblock.memory.cnt - 1; // in BB case i think we have only one memblock, so idx = 0
 
 	return (memblock.memory.regions[idx].base + memblock.memory.regions[idx].size);
 }

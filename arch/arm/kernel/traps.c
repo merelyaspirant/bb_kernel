@@ -823,6 +823,7 @@ static inline void __init kuser_init(void *vectors)
 void __init early_trap_init(void *vectors_base)
 {
 #ifndef CONFIG_CPU_V7M
+//BB case
 	unsigned long vectors = (unsigned long)vectors_base;
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
@@ -837,7 +838,7 @@ void __init early_trap_init(void *vectors_base)
 	 * branch back to the undefined instruction.
 	 */
 	for (i = 0; i < PAGE_SIZE / sizeof(u32); i++)
-		((u32 *)vectors_base)[i] = 0xe7fddef1;
+		((u32 *)vectors_base)[i] = 0xe7fddef1; //BB case undefined inst. on all arm32 , locks the CPU if ever PC gets here. security measure
 
 	/*
 	 * Copy the vectors, stubs and kuser helpers (in entry-armv.S)

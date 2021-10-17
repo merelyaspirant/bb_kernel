@@ -152,6 +152,11 @@ pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmdp, pte_t *ptep)
 	 * The pmd must be loaded with the physical address of the PTE table
 	 */
 	__pmd_populate(pmdp, __pa(ptep), _PAGE_KERNEL_TABLE);
+    /* BB Case*/
+    /* #define _PAGE_KERNEL_TABLE  (PMD_TYPE_TABLE | PMD_BIT4 | PMD_DOMAIN(DOMAIN_KERNEL))
+       PMD_TYPE_TABLE value 01 tells this entry points to second level table
+       while PMD_TYPE_SEC value 10 tells entry directly points to section, as in case of swapper_pg_dir PGD
+    */
 }
 
 static inline void
